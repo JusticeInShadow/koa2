@@ -45,7 +45,7 @@ var logger = new Log();
 var conditional = require('koa-conditional-get');
 var etag = require('koa-etag');
 
-//session储存  数据查询缓存
+//数据查询缓存    session储存，提升请求的性能
 var session = require("koa-session2");
 var Store = require("./lib/store/Store");
 
