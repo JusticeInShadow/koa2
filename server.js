@@ -64,15 +64,96 @@ render(app, {
     debug: true
 });
 
+//https过滤
+let httpsFilter = function () {
+    return async (ctx,next) => {
+        let url = ctx.req.url;//访问的url
+        let isFetch = ctx.request.accept.headers.fetch;
+        if (isFetch == 1) {
+            await next()
+        } else {
+            let proto = ctx.req.headers["X-Forwarded-Proto"] || ctx.req.headers["x-forwarded-proto"];
+            console.log("httpsFilter proto:" + proto);
+            logger.info("httpsFilter proto:" + proto);
+            if ((url == "/login" || url == "/app" || url == "/") && proto == "http") {
+                ctx.response.redirect("https://passport.harmontronics.com" + url);
+            } else {
+                await next()
+            }
+        }
+    }
+};
+
+//登陆过滤
+let loginFilter = function () {
+    return async (ctx,next)=> {
+        let url = ctx.req.url;//访问的url
+        let isFetch = ctx.request.ctx.headers.fetch;
+        let token = "";//默认token为空
+        if (isFetch == 1) {//如果是ajax请求则忽略
+            token = ctx.req.headers.token;
+            if (undefined === token || null === token || "" === token) {
+                ctx.body = {
+                    "success": false,
+                    "data": "error100000",
+                    "description": "无效的token"
+                }
+            } else {
+                await next();
+            }
+        } else if (url == "/login" || url.indexOf("/register") > -1 || url == "/download") {//登录注册不需要验证token
+            await next();
+        } else if (url.indexOf("/css") > -1 || url.indexOf("/js") > -1 || url.indexOf("/images") > -1 || url.indexOf("/download") > -1) {//资源文件和login 不需要验证token
+            await next();
+        } else {
+            token = ctx.accept.headers.cookie.get("token");
+            let flag = true;//已经登录了
+            if (undefined === token || null === token || "" === token) {//还未登录
+                flag = false;
+            }
+            if (!flag) {
+                ctx.response.redirect("/login");
+            } else {
+                await next();
+            }
+        }
+
+    }
+};
+
+//跳转filter
+let redirectFilter = function () {
+    return async (ctx,next) => {
+        let url = ctx.req.url;
+        if (url.indexOf("/css") > -1 || url.indexOf("/js") > -1 || url.indexOf("/images") > -1) {
+            await next();
+            return;
+        }
+        let status = ctx.res.statusCode;//返回状态码
+        let isFetch = ctx.request.ctx.headers.fetch;
+        if (404 == status) {
+            yield ctx.render("404");
+        } else if (500 == status && isFetch != 1) {
+            //重定向到500页面
+            yield ctx.render("500");
+        } else {
+            yield next;
+        }
+    }
+};
+
 //中间件排队
-app.use(session({
+if (NODE_ENV == 'product') {
+    app.use(httpsFilter());//正式环境启用http转https
+}
+app.use(loginFilter()).use(session({
         store:new Store()
 })).use(compress({
         threshold: 2048       //要压缩的最小响应字节
 })).use(bodyParse({
         jsonLimit:'10mb'
 })).use(conditional()).use(etag()).use(staticServer(path.join(__dirname, config.staticPath)))
-    .use(logger.logFilter()).use(router.allowedMethods()).use(router.routes());
+    .use(logger.logFilter()).use(router.allowedMethods()).use(router.routes()).use(redirectFilter());
 
 var server = app.listen(config.serverPort);
 console.log("服务已开启,端口：" + config.serverPort);
