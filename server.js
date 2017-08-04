@@ -106,13 +106,15 @@ let loginFilter = function () {
         } else if (url.indexOf("/css") > -1 || url.indexOf("/js") > -1 || url.indexOf("/images") > -1 || url.indexOf("/download") > -1) {//资源文件和login 不需要验证token
             await next();
         } else {
-            token = ctx.accept.headers.cookie.get("token");
+            // token = ctx.accept.headers.cookie.get("token");
+            token = ctx.accept.headers.cookie;
+            token = "test_token";
             let flag = true;//已经登录了
             if (undefined === token || null === token || "" === token) {//还未登录
                 flag = false;
             }
             if (!flag) {
-                ctx.response.redirect("/login");
+                ctx.response.redirect(config.loginUrl);
             } else {
                 await next();
             }
@@ -132,12 +134,12 @@ let redirectFilter = function () {
         let status = ctx.res.statusCode;//返回状态码
         let isFetch = ctx.request.ctx.headers.fetch;
         if (404 == status) {
-            yield ctx.render("404");
+            await ctx.render("404");
         } else if (500 == status && isFetch != 1) {
             //重定向到500页面
-            yield ctx.render("500");
+            await ctx.render("500");
         } else {
-            yield next;
+            await next();
         }
     }
 };
