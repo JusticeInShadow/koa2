@@ -106,9 +106,7 @@ let loginFilter = function () {
         } else if (url.indexOf("/css") > -1 || url.indexOf("/js") > -1 || url.indexOf("/images") > -1 || url.indexOf("/download") > -1) {//资源文件和login 不需要验证token
             await next();
         } else {
-            // token = ctx.accept.headers.cookie.get("token");
-            token = ctx.accept.headers.cookie;
-            token = "test_token";
+            token = ctx.cookies.get("token");
             let flag = true;//已经登录了
             if (undefined === token || null === token || "" === token) {//还未登录
                 flag = false;
